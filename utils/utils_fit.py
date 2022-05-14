@@ -4,7 +4,7 @@ from torch import nn
 
 
 def fit_one_epoch(model_train, model, loss_history, optimizer, epoch, epoch_step, epoch_step_val, data, data_test,
-                  Epoch, cuda):
+                  Epoch, cuda, mean, std, norm):
     total_loss = 0
     val_loss = 0
 
@@ -55,13 +55,17 @@ def fit_one_epoch(model_train, model, loss_history, optimizer, epoch, epoch_step
                     x = x.cuda()
                     y = y.cuda()
                 outputs = model_train(x)
-                loss = nn.HuberLoss()(outputs, y)
+                if norm:
+                    for i in y:
+                        for j in range(len(i)):
+                            i[j] = (i[j] - mean) / std
+                loss = nn.MSELoss()(outputs, y)
                 val_loss += loss.item()
             pbar.set_postfix(**{'total_loss': val_loss / (iteration + 1),
                                 # 'f_score'   : val_f_score / (iteration + 1),
                                 'lr': get_lr(optimizer)})
             pbar.update(1)
-
+            
     loss_history.append_loss(total_loss / epoch_step, val_loss / epoch_step_val)
     print('Finish Validation')
     print('Epoch:' + str(epoch + 1) + '/' + str(Epoch))
