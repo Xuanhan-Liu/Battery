@@ -1,0 +1,60 @@
+import torch
+import torch.backends.cudnn as cudnn
+import torch.optim as optim
+from models.normal_cnn import CNN
+from utils.callbacks import LossHistory
+from models.resnet import resnet50
+from utils.utils_fit import fit_one_epoch
+from data.CNNdata import get_train_val_test_loader, CNNpolygrain
+from data_loader import get_dataLoader
+import numpy as np
+
+torch.set_printoptions(precision=10, sci_mode=False)
+model = resnet50()
+# model = CNN()
+# specify number of microstructures
+
+batch_size = 8
+
+train_loader, test_loader, _, _ = get_dataLoader(file_number=50, batch_size=batch_size)
+
+model.load_state_dict(torch.load('./logs/loss_2022_04_27_03_17_46_batch_size8_train_size500_val_size125_start_lr1e-05_epochTotal150/ep150-loss0.001-val_loss0.001.pth'))
+model.cuda()
+xs = np.array([0, 0, 0])
+# xs2 = []
+# xs3 = []
+ys = np.array([0, 0, 0])
+# ys2 = []
+# ys3 = []
+for iteration, batch in enumerate(test_loader):
+    x, y = batch
+    x = x.permute(0, 4, 1, 2, 3)
+    with torch.no_grad():
+        x = x.type(torch.FloatTensor)
+        y = y.type(torch.FloatTensor)
+        x = x.cuda()
+        y = y.cuda()
+        outputs = model(x)
+        outputs = outputs * 6 - 8
+        y = y * 6 - 8
+
+        # outputs = torch.exp(outputs)
+        # y = torch.exp(y)
+        # print(outputs)
+        for output in outputs:
+            xs = np.vstack([xs, output.cpu()])
+#             xs2.append(output[1].cpu())
+#             xs3.append(output[2].cpu())
+        for label in y:
+            ys = np.vstack([ys, label.cpu()])
+#             ys2.append(label[1].cpu())
+#             ys3.append(label[2].cpu())
+ys = ys[1:]
+xs = xs[1:]
+
+np.savez('resnet_result.npz', pridict=xs, label=ys)
+# import matplotlib.pyplot as plt
+# plt.figure()
+# plt.plot(xs+xs2+xs3,ys+ys2+ys3, 'o')
+# plt.show()
+# plt.savefig('test2.png')
